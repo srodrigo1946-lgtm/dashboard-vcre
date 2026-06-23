@@ -468,9 +468,96 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     .row.r-2, .row.r-3-1, .row.r-1-2 { grid-template-columns: 1fr; }
     .filters { grid-template-columns: 1fr 1fr; }
   }
+
+  /* ============== LOGIN OVERLAY ============== */
+  #loginScreen {
+    position: fixed; inset: 0; z-index: 99999;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(124,137,255,.22), transparent 50%),
+      radial-gradient(circle at 12% 85%, rgba(167,139,250,.14), transparent 45%),
+      radial-gradient(circle at 88% 20%, rgba(34,211,238,.10), transparent 50%),
+      var(--bg-0);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  }
+  body.needs-login #loginScreen { display: flex; }
+  body.needs-login > .container { display: none; }
+  .login-card {
+    width: 100%; max-width: 420px;
+    background: linear-gradient(145deg, rgba(19,26,53,.95), rgba(11,18,38,.85));
+    border: 1px solid var(--border-2); border-radius: 22px;
+    padding: 36px 32px; box-shadow: var(--shadow-lg), 0 0 50px rgba(124,137,255,.15);
+    backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%);
+    animation: loginFadeIn .5s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes loginFadeIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+  .login-logo { text-align: center; margin-bottom: 8px; font-size: 44px; filter: drop-shadow(0 0 16px rgba(124,137,255,.4)); }
+  .login-card h1 {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 700; text-align: center;
+    background: linear-gradient(135deg, #fff, #c9d4ff 60%, #a78bfa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 6px; letter-spacing: -.5px;
+  }
+  .login-card .sub { text-align: center; color: var(--text-2); font-size: 13px; margin-bottom: 26px; }
+  .login-field { margin-bottom: 14px; }
+  .login-field label { display: block; font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 1.1px; font-weight: 600; margin-bottom: 7px; }
+  .login-field input {
+    width: 100%; padding: 13px 14px; border-radius: 11px;
+    background: rgba(5,8,22,.7); border: 1px solid var(--border-2);
+    color: var(--text-1); font-size: 14px; font-family: 'Inter', sans-serif;
+    transition: border-color .25s, background .25s, box-shadow .25s;
+  }
+  .login-field input:focus { outline: none; border-color: var(--accent); background: rgba(5,8,22,.9); box-shadow: 0 0 0 3px rgba(124,137,255,.18); }
+  .login-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 6px;
+    box-shadow: 0 6px 20px rgba(124,137,255,.4), inset 0 1px 0 rgba(255,255,255,.18);
+    transition: transform .25s, box-shadow .25s;
+    letter-spacing: .2px;
+  }
+  .login-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(124,137,255,.55), inset 0 1px 0 rgba(255,255,255,.25); }
+  .login-btn:active { transform: translateY(0); }
+  .login-error { color: #fb7185; font-size: 12px; text-align: center; margin-top: 12px; min-height: 16px; font-weight: 500; }
+  .login-footer { text-align: center; color: var(--text-3); font-size: 11px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
+
+  .user-chip {
+    display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px;
+    background: rgba(124,137,255,.10); border: 1px solid rgba(124,137,255,.30);
+    border-radius: 99px; color: var(--text-1); font-size: 12px; font-weight: 500;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  .user-chip .role { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
+  .user-chip .nome { padding-right: 4px; }
+  .user-chip button { background: none; border: none; color: var(--text-3); cursor: pointer; padding: 2px 6px; font-size: 13px; border-radius: 4px; }
+  .user-chip button:hover { color: var(--red); }
 </style>
 </head>
 <body>
+
+<!-- Login overlay (cobre a tela quando não autenticado) -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">🔐</div>
+    <h1>Painel VCRED 2026</h1>
+    <p class="sub">Acesso restrito — Esquadrão Kayser</p>
+    <form id="loginForm">
+      <div class="login-field">
+        <label for="loginEmail">E-mail</label>
+        <input type="email" id="loginEmail" placeholder="seu.email@vendasnovolar.com.br" autocomplete="username" required/>
+      </div>
+      <div class="login-field">
+        <label for="loginPass">Senha</label>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required/>
+      </div>
+      <button type="submit" class="login-btn">Entrar</button>
+      <div class="login-error" id="loginError"></div>
+    </form>
+    <div class="login-footer">Construtora Novolar RJ · Esquadrão Kayser</div>
+  </div>
+</div>
+
 <div class="container">
 
   <header>
@@ -2838,6 +2925,91 @@ travarHistorico();  // Trava só o campeão de meses FINALIZADOS
 renderHistorico();
 // Se houver dados xlsx salvos do navegador, restaura-os por cima dos embutidos
 tentarCarregarDadosSalvos();
+
+// ============== SISTEMA DE LOGIN ==============
+const LOGIN_USERS = {
+  'srodrigo1946@gmail.com': { nome: 'Rodrigo Kayser', papel: 'Diretor', gerenteNome: null },
+  'gracy.ferreira@vendasnovolar.com.br': { nome: 'Gracy Ferreira', papel: 'Gerente', gerenteNome: 'Gracy kaly da Silva Ferreira' },
+  'helen.cristina@vendasnovolar.com.br': { nome: 'Helen Cristina', papel: 'Gerente', gerenteNome: 'Helen Bittencourt' },
+  'ivan.carlos@vendasnovolar.com.br': { nome: 'Ivan Carlos', papel: 'Gerente', gerenteNome: 'Ivan Ferreira' },
+  'rebeca.silva@vendasnovolar.com.br': { nome: 'Rebeca Clarice Alves', papel: 'Gerente', gerenteNome: 'REBECA CLARICE ALVES SILVA' },
+};
+const LOGIN_PASS = '123456789';
+const LOGIN_SESSION_KEY = 'vcred-login';
+let CURRENT_USER = null;
+
+function getCurrentUser() {
+  try { return JSON.parse(localStorage.getItem(LOGIN_SESSION_KEY) || 'null'); } catch(e) { return null; }
+}
+
+function doLogin(email, pass) {
+  const e = String(email||'').toLowerCase().trim();
+  const user = LOGIN_USERS[e];
+  if (!user) return { ok: false, msg: 'E-mail não autorizado.' };
+  if (pass !== LOGIN_PASS) return { ok: false, msg: 'Senha incorreta.' };
+  const session = { email: e, ...user, loginAt: new Date().toISOString() };
+  try { localStorage.setItem(LOGIN_SESSION_KEY, JSON.stringify(session)); } catch(err) {}
+  CURRENT_USER = session;
+  return { ok: true, user: session };
+}
+
+function logout() {
+  try { localStorage.removeItem(LOGIN_SESSION_KEY); } catch(e) {}
+  window.location.reload();
+}
+
+function renderUserChip() {
+  if (!CURRENT_USER) return;
+  const actions = document.querySelector('header .actions');
+  if (!actions) return;
+  let chip = document.getElementById('userChip');
+  if (!chip) {
+    chip = document.createElement('span');
+    chip.id = 'userChip';
+    chip.className = 'user-chip';
+    actions.insertBefore(chip, actions.firstChild);
+  }
+  const inits = CURRENT_USER.nome.split(/\s+/).slice(0,2).map(s => s[0]).join('').toUpperCase();
+  chip.innerHTML = `<span class="avatar sm" title="${CURRENT_USER.nome}">${inits}</span>`
+    + `<span class="nome">${CURRENT_USER.nome.split(' ')[0]}</span>`
+    + `<span class="role">${CURRENT_USER.papel}</span>`
+    + `<button title="Sair" id="btnLogout">×</button>`;
+  document.getElementById('btnLogout').onclick = logout;
+}
+
+function mostrarLogin() {
+  document.body.classList.add('needs-login');
+  const screen = document.getElementById('loginScreen');
+  if (!screen) return;
+  const form = document.getElementById('loginForm');
+  const errEl = document.getElementById('loginError');
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const pass = document.getElementById('loginPass').value;
+    const r = doLogin(email, pass);
+    if (!r.ok) {
+      errEl.textContent = r.msg;
+      setTimeout(() => { errEl.textContent = ''; }, 4000);
+      return;
+    }
+    document.body.classList.remove('needs-login');
+    renderUserChip();
+    showToast(`Bem-vindo(a), ${r.user.nome.split(' ')[0]}! (${r.user.papel})`);
+  };
+  setTimeout(() => document.getElementById('loginEmail').focus(), 100);
+}
+
+// Init login: file:// pula login (modo editor local), hospedado requer login
+const _isLocalFile = window.location.protocol === 'file:';
+CURRENT_USER = getCurrentUser();
+if (!_isLocalFile) {
+  if (CURRENT_USER && LOGIN_USERS[CURRENT_USER.email]) {
+    renderUserChip();
+  } else {
+    mostrarLogin();
+  }
+}
 </script>
 </body>
 </html>
