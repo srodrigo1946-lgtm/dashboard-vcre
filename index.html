@@ -451,6 +451,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   /* ============== MODO VIEW-ONLY (GitHub Pages / clientes) ============== */
   body.view-only .editor-only { display: none !important; }
+/* ─── Diretor-only: controles de venda manual ───────────────────────── */
+body:not(.is-diretor) .diretor-only { display: none !important; }
+
   body.view-only .btn-editor { display: none !important; }
   body.view-only .btn-rm { display: none !important; }
   body.view-only #formVendaManual,
@@ -757,7 +760,7 @@ body.kanban-focus #tab-kanban .card-title { font-size: 16px; }
       </div>
     </div>
 
-    <div class="row editor-only">
+    <div class="row editor-only diretor-only">
       <div class="card">
         <div class="card-title">✏️ Adicionar Venda Ganha Manualmente</div>
         <div class="card-subtitle">Use para registrar vendas que não estão no relatório · Tudo fica gravado</div>
@@ -780,7 +783,7 @@ body.kanban-focus #tab-kanban .card-title { font-size: 16px; }
       </div>
     </div>
 
-    <div class="row editor-only">
+    <div class="row editor-only diretor-only">
       <div class="card">
         <div class="card-title">Vendas Manuais Cadastradas <span style="font-weight:400;color:var(--text-3);font-size:12px" id="vmCount"></span></div>
         <div class="card-subtitle">Clique no × para remover</div>
@@ -788,7 +791,7 @@ body.kanban-focus #tab-kanban .card-title { font-size: 16px; }
       </div>
     </div>
 
-    <div class="row editor-only">
+    <div class="row editor-only diretor-only">
       <div class="card">
         <div class="card-title">🚫 Vendas Excluídas <span style="font-weight:400;color:var(--text-3);font-size:12px" id="vExclCount"></span></div>
         <div class="card-subtitle">Vendas da planilha que você marcou pra não contar — clique em ↩️ para restaurar</div>
@@ -1385,8 +1388,8 @@ function renderTabelaVendas(d) {
   v.sort((a, b) => a.data.localeCompare(b.data)).forEach((x, idx) => {
     const tag = x.manual ? ' <span class="pill manual" title="Cadastro manual">✏️ manual</span>' : '';
     const btnExcluir = x.manual
-      ? `<button class="btn-rm" data-mid="${x._id}" title="Remover venda manual">×</button>`
-      : `<button class="btn-rm" data-num="${x.num}" data-cli="${(x.cliente||'').replace(/"/g,'&quot;')}" data-ger="${(x.gerente||'').replace(/"/g,'&quot;')}" title="Excluir venda (deixa de contar no ranking)">×</button>`;
+      ? `<button class="btn-rm diretor-only" data-mid="${x._id}" title="Remover venda manual">×</button>`
+      : `<button class="btn-rm diretor-only" data-num="${x.num}" data-cli="${(x.cliente||'').replace(/"/g,'&quot;')}" data-ger="${(x.gerente||'').replace(/"/g,'&quot;')}" title="Excluir venda (deixa de contar no ranking)">×</button>`;
     tb.insertAdjacentHTML('beforeend', `<tr data-idx="${idx}">
       <td class="num">${x.data}</td>
       <td class="num">${x.num || '—'}</td>
@@ -1875,7 +1878,7 @@ function renderVendasManuais() {
       <td class="num">${v.finan ? fmtBRL(v.finan) : '—'}</td>
       <td class="num">${v.fgts ? fmtBRL(v.fgts) : '—'}</td>
       <td style="color:var(--text-3);font-size:11px">${dt}</td>
-      <td><button class="btn-rm" data-id="${v._id}">× Remover</button></td>
+      <td><button class="btn-rm diretor-only" data-id="${v._id}">× Remover</button></td>
     </tr>`);
   });
   tb.querySelectorAll('button.btn-rm').forEach(b => b.onclick = (e) => { e.stopPropagation(); removerVendaManual(b.dataset.id); });
@@ -1900,7 +1903,7 @@ function renderVendasExcluidas() {
       <td><span class="avatar-cell">${avatarHTML(v.gerente || '?', 'sm')} ${v.gerente || '—'}</span></td>
       <td style="color:var(--text-3);font-size:12px">${v.motivo || '—'}</td>
       <td style="color:var(--text-3);font-size:11px">${dt}</td>
-      <td><button class="btn-rm" style="background:rgba(99,102,241,.12);color:var(--accent);border-color:rgba(99,102,241,.3)" data-num="${v.num}">↩️ Restaurar</button></td>
+      <td><button class="btn-rm diretor-only" style="background:rgba(99,102,241,.12);color:var(--accent);border-color:rgba(99,102,241,.3)" data-num="${v.num}">↩️ Restaurar</button></td>
     </tr>`);
   });
   tb.querySelectorAll('button[data-num]').forEach(b => b.onclick = (e) => { e.stopPropagation(); restaurarVendaExcluida(b.dataset.num); });
@@ -3164,6 +3167,7 @@ function renderUserChip() {
     actions.insertBefore(chip, actions.firstChild);
   }
   const inits = CURRENT_USER.nome.split(/\s+/).slice(0,2).map(s => s[0]).join('').toUpperCase();
+  document.body.classList.toggle('is-diretor', CURRENT_USER.papel === 'Diretor');
   chip.innerHTML = `<span class="avatar sm" title="${CURRENT_USER.nome}">${inits}</span>`
     + `<span class="nome">${CURRENT_USER.nome.split(' ')[0]}</span>`
     + `<span class="role">${CURRENT_USER.papel}</span>`
