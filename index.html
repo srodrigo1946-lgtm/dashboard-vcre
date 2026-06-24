@@ -537,6 +537,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 .kanban-board { display:flex; gap:10px; overflow-x:auto; padding-bottom:10px; min-height:600px; }
 .kanban-col { flex:0 0 240px; display:flex; flex-direction:column; border-radius:10px; overflow:hidden; border:1px solid var(--border); background:var(--bg-2); }
 .kanban-col-header { padding:10px 12px; font-size:12px; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+
+.kanban-col-header.editavel { cursor: pointer; }
+.kanban-col-header.editavel .nome::after { content: " ✏️"; opacity: 0; transition: opacity .15s; font-size: 10px; }
+.kanban-col-header.editavel:hover .nome::after { opacity: 1; }
+.kanban-col-header.editavel:hover { filter: brightness(1.15); }
 .kanban-col-header .count { background:rgba(255,255,255,.18); padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
 .kanban-col-body { flex:1; padding:8px; display:flex; flex-direction:column; gap:6px; min-height:120px; }
 .kanban-col.over { box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
@@ -858,7 +863,7 @@ body.kanban-focus #tab-kanban .card-title { font-size: 16px; }
     <div class="row" style="grid-template-columns: 1fr; gap:14px">
       <div class="card">
         <div class="card-title">Funil Kanban — Editável <span style="font-weight:400;color:var(--text-3);font-size:12px">arraste os cards entre etapas · alterações salvas neste navegador</span></div>
-        <div class="card-subtitle">10 etapas VCRED do 1.1 Cadastro até a 5.4 Venda Concluída</div>
+        <div class="card-subtitle">10 etapas VCRED do 1.1 Cadastro até a 5.4 Venda Concluída · clique no nome da coluna para renomear ✏️</div>
         <div id="kanbanBoard" class="kanban-board"></div>
         <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn" id="btnKanbanReset">🔄 Resetar alterações</button>
@@ -1514,6 +1519,20 @@ const KANBAN_ETAPA_COLORS = {
   "5.4 Venda Concluída":        { bg: "#0a2218", text: "#bbf7d0", header: "#164a2f" }
 };
 let KANBAN_OVERRIDES = {};
+const KANBAN_LABELS_KEY = 'kanban-labels-v1';
+let KANBAN_LABELS = {};
+try { KANBAN_LABELS = JSON.parse(localStorage.getItem(KANBAN_LABELS_KEY) || '{}'); } catch(e) {}
+function etapaLabel(etapa) { return KANBAN_LABELS[etapa] || etapa; }
+function renomearEtapa(etapa) {
+  const atual = etapaLabel(etapa);
+  const novo = prompt('Renomear coluna:', atual);
+  if (novo == null) return;
+  const trimmed = novo.trim();
+  if (!trimmed || trimmed === etapa) { delete KANBAN_LABELS[etapa]; } else { KANBAN_LABELS[etapa] = trimmed; }
+  try { localStorage.setItem(KANBAN_LABELS_KEY, JSON.stringify(KANBAN_LABELS)); } catch(e) {}
+  renderKanban();
+}
+
 try { KANBAN_OVERRIDES = JSON.parse(localStorage.getItem(KANBAN_OVERRIDES_KEY) || '{}'); } catch(e) {}
 
 function kanbanEtapaDe(card) {
@@ -1553,10 +1572,7 @@ function renderKanban() {
     const cards = byEtapa[etapa] || [];
     return `
       <div class="kanban-col" data-etapa="${etapa}" style="background:${col.bg}">
-        <div class="kanban-col-header" style="background:${col.header};color:${col.text}">
-          <span>${etapa}</span>
-          <span class="count" style="color:${col.text}">${cards.length}</span>
-        </div>
+        <div class="kanban-col-header editavel" style="background:${col.header};color:${col.text}" onclick="renomearEtapa('${etapa.replace(/'/g, "\\'")}')"><span class="nome">${etapaLabel(etapa)}</span><span class="count" style="color:${col.text}">${cards.length}</span></div>
         <div class="kanban-col-body" data-etapa="${etapa}">
           ${cards.length === 0 ? '<div class="kanban-empty">Solte aqui</div>' :
             cards.map(c => `
@@ -1608,9 +1624,11 @@ function renderKanban() {
 }
 
 function resetKanban() {
-  if (!confirm('Resetar todas as alterações manuais do Kanban?')) return;
+  if (!confirm('Resetar movimentações de cards E nomes customizados das colunas?')) return;
   KANBAN_OVERRIDES = {};
+  KANBAN_LABELS = {};
   localStorage.removeItem(KANBAN_OVERRIDES_KEY);
+  localStorage.removeItem(KANBAN_LABELS_KEY);
   renderKanban();
 }
 
