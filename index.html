@@ -551,6 +551,15 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 .kanban-card .badge.gold { background:rgba(245,158,11,.18); color:#fcd34d; }
 .kanban-empty { font-size:11px; color:var(--text-3); text-align:center; padding:20px 8px; border:1px dashed var(--border); border-radius:6px; }
 
+
+/* ─── Modo Focus do Kanban ────────────────────────────────────────── */
+body.kanban-focus .filters,
+body.kanban-focus .kpi-grid,
+body.kanban-focus footer { display: none !important; }
+body.kanban-focus .container { padding-top: 8px !important; }
+body.kanban-focus header { padding-bottom: 4px; }
+body.kanban-focus .kanban-board { min-height: calc(100vh - 200px); }
+body.kanban-focus #tab-kanban .card-title { font-size: 16px; }
 </style>
 </head>
 <body>
@@ -3051,6 +3060,7 @@ function bindEvents() {
     document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
     document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+    document.body.classList.toggle('kanban-focus', t.dataset.tab === 'kanban');
     if (t.dataset.tab === 'kanban') renderKanban();
     setTimeout(() => Object.values(charts).forEach(c => c.resize()), 50);
   });
