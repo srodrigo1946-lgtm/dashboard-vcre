@@ -575,6 +575,19 @@ body.kanban-focus .container { padding-top: 8px !important; }
 body.kanban-focus header { padding-bottom: 4px; }
 body.kanban-focus .kanban-board { min-height: calc(100vh - 200px); }
 body.kanban-focus #tab-kanban .card-title { font-size: 16px; }
+
+/* ─── Kanban Sync Toast ─────────────────────────────────────────── */
+#kanbanToastCont { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; max-width: 360px; pointer-events: none; }
+.kanban-toast { background: linear-gradient(135deg, #1e3a5f, #16294f); color: #e5edf7; padding: 12px 14px; border-radius: 10px; border: 1px solid #243154; box-shadow: 0 10px 30px rgba(0,0,0,.5); font-size: 13px; pointer-events: auto; animation: kbnSlideIn .3s ease-out; }
+.kanban-toast .ti { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.kanban-toast .tc { font-size: 12px; color: #cbd5e1; }
+.kanban-toast .tr { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+.kanban-toast .tr strong { color: #86efac; }
+.kanban-toast.fade { animation: kbnSlideOut .3s ease-in forwards; }
+@keyframes kbnSlideIn { from { transform: translateX(380px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes kbnSlideOut { to { transform: translateX(380px); opacity: 0; } }
+.sync-status-chip { font-size: 11px; padding: 4px 8px; border-radius: 6px; background: rgba(16,185,129,.15); color: #86efac; margin-left: 6px; }
+.sync-status-chip.off { background: rgba(148,163,184,.15); color: #94a3b8; }
 </style>
 </head>
 <body>
@@ -615,6 +628,8 @@ body.kanban-focus #tab-kanban .card-title { font-size: 16px; }
       <button class="btn primary btn-editor" id="btnLoadXlsx" title="Carregar/atualizar dados de uma planilha Excel (.xlsx). Substitui os dados embutidos.">📂 Carregar planilha</button>
       <input type="file" id="xlsxInput" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none"/>
       <button class="btn btn-editor" id="btnLimparCache" title="Limpar cache da planilha carregada e voltar aos dados embutidos no HTML">🔄 Limpar cache</button>
+      <button class="btn btn-editor" id="btnTokenSync" title="Configurar token GitHub para sincronizar movimentações do Kanban entre dispositivos" onclick="configurarTokenSync()">🔧 Token sync</button>
+      <span id="syncStatusChip" class="sync-status-chip off">⚪ Sync off</span>
       <button class="btn" id="btnSom" title="Ligar/desligar som. Clique para testar.">🔊</button>
       <button class="btn btn-editor" id="btnSaveHTML" title="Baixar uma nova versão do HTML com fotos + vendas manuais + histórico travado embutidos. Funciona offline (pendrive, e-mail).">📦 Salvar HTML completo</button>
       <button class="btn btn-editor" id="btnBackup" title="Baixar backup completo (fotos + histórico) em arquivo .json">📥 Backup</button>
@@ -1623,8 +1638,25 @@ function renderKanban() {
       col.parentElement.classList.remove('over');
       if (!dragNum) return;
       const novaEtapa = col.dataset.etapa;
+      // Capturar from ANTES de aplicar o override
+      const cardData = DADOS.find(d => String(d.num) === String(dragNum));
+      const etapaAntes = (cardData && (KANBAN_OVERRIDES[cardData.num] || cardData.etapa)) || '';
       KANBAN_OVERRIDES[dragNum] = novaEtapa;
       try { localStorage.setItem(KANBAN_OVERRIDES_KEY, JSON.stringify(KANBAN_OVERRIDES)); } catch(e) {}
+      // Publicar evento se houve mudança real e há usuário logado
+      if (CURRENT_USER && etapaAntes !== novaEtapa) {
+        kanbanPublishEvent({
+          id: (crypto.randomUUID && crypto.randomUUID()) || (Date.now() + '-' + Math.random().toString(36).slice(2,8)),
+          ts: new Date().toISOString(),
+          user: CURRENT_USER.nome,
+          papel: CURRENT_USER.papel,
+          tipo: 'move',
+          num: String(dragNum),
+          cliente: (cardData && cardData.cliente) || '',
+          from: etapaAntes,
+          to: novaEtapa,
+        });
+      }
       renderKanban();
     });
   });
@@ -1632,6 +1664,122 @@ function renderKanban() {
   const info = document.getElementById('kanbanOverridesInfo');
   const n = Object.keys(KANBAN_OVERRIDES).length;
   if (info) info.textContent = n ? `${n} card(s) movido(s) manualmente` : '';
+}
+
+
+
+// ───────────────────────────────────────────────────────────────────
+// Sync em tempo real via GitHub (repo srodrigo1946-lgtm/kanban-events)
+// ───────────────────────────────────────────────────────────────────
+const KANBAN_SYNC_REPO  = 'srodrigo1946-lgtm/kanban-events';
+const KANBAN_SYNC_FILE  = 'events.json';
+const KANBAN_SYNC_API   = 'https://api.github.com/repos/' + KANBAN_SYNC_REPO + '/contents/' + KANBAN_SYNC_FILE;
+const KANBAN_SYNC_RAW   = 'https://raw.githubusercontent.com/' + KANBAN_SYNC_REPO + '/main/' + KANBAN_SYNC_FILE;
+const KANBAN_SYNC_INTERVAL = 10000;  // 10s
+const KANBAN_SYNC_MAX = 50;
+
+function kanbanSyncToken() {
+  try { return localStorage.getItem('kanban-gh-token') || ''; } catch(e) { return ''; }
+}
+
+const _kbnShown = new Set();
+let _kbnInited = false;
+let _kbnTimer = null;
+
+async function kanbanPublishEvent(ev) {
+  const tok = kanbanSyncToken();
+  if (!tok) return; // sync desativado
+  try {
+    const getRes = await fetch(KANBAN_SYNC_API, { headers: { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json' } });
+    if (!getRes.ok) { console.warn('[sync] GET falhou:', getRes.status); return; }
+    const meta = await getRes.json();
+    let events = [];
+    try { events = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\s/g,''))))); } catch(e) {}
+    if (!Array.isArray(events)) events = [];
+    events.push(ev);
+    if (events.length > KANBAN_SYNC_MAX) events = events.slice(-KANBAN_SYNC_MAX);
+    const body = JSON.stringify(events, null, 2);
+    const content = btoa(unescape(encodeURIComponent(body)));
+    const putRes = await fetch(KANBAN_SYNC_API, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'kanban: ' + ev.user + ' moveu ' + (ev.cliente || ev.num),
+        content,
+        sha: meta.sha,
+      }),
+    });
+    if (!putRes.ok) console.warn('[sync] PUT falhou:', putRes.status, await putRes.text());
+  } catch(e) { console.warn('[sync] publish erro:', e); }
+}
+
+async function kanbanPollEvents() {
+  try {
+    const res = await fetch(KANBAN_SYNC_RAW + '?_=' + Date.now());
+    if (!res.ok) return;
+    const events = await res.json();
+    if (!Array.isArray(events)) return;
+    if (!_kbnInited) {
+      events.forEach(e => _kbnShown.add(e.id));
+      _kbnInited = true;
+      return;
+    }
+    const meuNome = (CURRENT_USER && CURRENT_USER.nome) || '';
+    events.filter(e => e && e.id && !_kbnShown.has(e.id) && e.user !== meuNome)
+          .forEach(e => { _kbnShown.add(e.id); kanbanShowToast(e); });
+  } catch(e) { /* network glitch — silencioso */ }
+}
+
+function kanbanShowToast(ev) {
+  let cont = document.getElementById('kanbanToastCont');
+  if (!cont) {
+    cont = document.createElement('div');
+    cont.id = 'kanbanToastCont';
+    document.body.appendChild(cont);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'kanban-toast';
+  const safe = s => String(s == null ? '' : s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+  toast.innerHTML =
+    '<div class="ti">📋 ' + safe(ev.user) + ' <span style="opacity:.6;font-size:11px">(' + safe(ev.papel) + ')</span></div>' +
+    '<div class="tc">' + safe(ev.cliente || ev.num) + '</div>' +
+    '<div class="tr">' + safe(ev.from) + ' → <strong>' + safe(ev.to) + '</strong></div>';
+  cont.appendChild(toast);
+  setTimeout(() => { toast.classList.add('fade'); setTimeout(() => toast.remove(), 320); }, 6000);
+}
+
+function kanbanStartSync() {
+  if (_kbnTimer) clearInterval(_kbnTimer);
+  _kbnInited = false;
+  _kbnShown.clear();
+  // Diretor faz polling pra ver toasts; Gerentes só publicam.
+  if (CURRENT_USER && CURRENT_USER.papel === 'Diretor') {
+    kanbanPollEvents();
+    _kbnTimer = setInterval(kanbanPollEvents, KANBAN_SYNC_INTERVAL);
+  }
+}
+
+function configurarTokenSync() {
+  const atual = kanbanSyncToken();
+  const masked = atual ? atual.slice(0, 8) + '...' + atual.slice(-4) : '(vazio)';
+  const novo = prompt('Token GitHub de escrita no repo kanban-events.\nAtual: ' + masked + '\n\nCole o novo token (ou vazio pra remover):', atual);
+  if (novo == null) return;
+  const t = novo.trim();
+  try {
+    if (t) localStorage.setItem('kanban-gh-token', t);
+    else   localStorage.removeItem('kanban-gh-token');
+  } catch(e) { alert('Falha ao salvar no localStorage: ' + e.message); return; }
+  alert(t ? '✓ Token salvo. Sync ativo.' : '✓ Token removido. Sync desativado.');
+  atualizarSyncChip();
+  kanbanStartSync();
+}
+
+function atualizarSyncChip() {
+  const chip = document.getElementById('syncStatusChip');
+  if (!chip) return;
+  const ativo = !!kanbanSyncToken();
+  chip.textContent = ativo ? '🟢 Sync online' : '⚪ Sync off';
+  chip.className = 'sync-status-chip' + (ativo ? '' : ' off');
 }
 
 function resetKanban() {
