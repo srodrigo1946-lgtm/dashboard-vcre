@@ -937,33 +937,26 @@ function _dedupAnalises(arr) {
   return out;
 }
 
-let DADOS = _dedupAnalises(DADOS_RAW.filter(d => d.status !== 'Cancelado').filter(d => {
-    // Filtra vendas com data futura (ruído da planilha — não conta venda que ainda não aconteceu)
-    if (d.status === 'Vendida' && d.venda) {
-      const m = String(d.venda).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (m) {
-        const vendaISO = m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
-        const hojeISO = new Date().toISOString().slice(0,10);
-        if (vendaISO > hojeISO) return false;
-      }
-    }
-    // Também filtra análises com DATA da análise futura (não existem ainda)
-    if (d.data) {
-      const m = String(d.data).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (m) {
-        const dataISO = m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
-        const hojeISO = new Date().toISOString().slice(0,10);
-        if (dataISO > hojeISO) return false;
-      }
-    }
-    return true;
-  }).map(d => {
+let DADOS = _dedupAnalises(DADOS_RAW.filter(d => d.status !== 'Cancelado').map(d => {
     const parts = String(d.data).split(/[\/\-]/);
     let day, month, year;
     if (parts[0].length === 4) { [year, month, day] = parts; }
     else if (parseInt(parts[0]) > 12) { [day, month, year] = parts; }
     else if (parseInt(parts[1]) > 12) { [month, day, year] = parts; }
-    else { [day, month, year] = parts; }
+    else {
+      // Ambíguo (ambos <= 12): prefere DD/MM (PT-BR). Mas se DD/MM cai no futuro
+      // E o swap (MM/DD) cai no passado/presente, usa MM/DD — corrige planilhas
+      // que misturam formatos.
+      const hoje = new Date();
+      const tryDDMM = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+      const tryMMDD = new Date(parseInt(parts[2]), parseInt(parts[0])-1, parseInt(parts[1]));
+      if (tryDDMM > hoje && tryMMDD <= hoje) {
+        [month, day, year] = parts;
+        d.data = day + '/' + month + '/' + year;
+      } else {
+        [day, month, year] = parts;
+      }
+    }
     d.mes = parseInt(month);
     d.ano = parseInt(year);
     if (d.laudo === 'Aprovado' || d.laudo === 'Aprovado com ressalva') d.cat = 'Aprovado';
