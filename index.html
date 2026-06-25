@@ -450,7 +450,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   #confettiCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
 
   /* ============== MODO VIEW-ONLY (GitHub Pages / clientes) ============== */
+  body:not(.is-diretor) .editor-only,
+  body:not(.is-diretor) .btn-editor,
+  body:not(.is-diretor) .save-badge { display: none !important; }
   body.view-only .editor-only { display: none !important; }
+  /* Cards e header do Kanban: read-only pra não-diretor */
+  body:not(.is-diretor) .kanban-col-header.editavel { cursor: default !important; }
+  body:not(.is-diretor) .kanban-col-header.editavel .nome::after { content: "" !important; }
+  body:not(.is-diretor) .kanban-col-header.editavel:hover { filter: none !important; }
 /* ─── Diretor-only: controles de venda manual ───────────────────────── */
 body:not(.is-diretor) .diretor-only { display: none !important; }
 
@@ -1527,6 +1534,7 @@ let KANBAN_LABELS = {};
 try { KANBAN_LABELS = JSON.parse(localStorage.getItem(KANBAN_LABELS_KEY) || '{}'); } catch(e) {}
 function etapaLabel(etapa) { return KANBAN_LABELS[etapa] || etapa; }
 function renomearEtapa(etapa) {
+  if (!document.body.classList.contains('is-diretor')) { return; }
   const atual = etapaLabel(etapa);
   const novo = prompt('Renomear coluna:', atual);
   if (novo == null) return;
@@ -1627,6 +1635,7 @@ function renderKanban() {
 }
 
 function resetKanban() {
+  if (!document.body.classList.contains('is-diretor')) { alert('Apenas o Diretor pode resetar o Kanban.'); return; }
   if (!confirm('Resetar movimentações de cards E nomes customizados das colunas?')) return;
   KANBAN_OVERRIDES = {};
   KANBAN_LABELS = {};
