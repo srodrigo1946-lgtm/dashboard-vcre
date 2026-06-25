@@ -937,7 +937,27 @@ function _dedupAnalises(arr) {
   return out;
 }
 
-let DADOS = _dedupAnalises(DADOS_RAW.filter(d => d.status !== 'Cancelado').map(d => {
+let DADOS = _dedupAnalises(DADOS_RAW.filter(d => d.status !== 'Cancelado').filter(d => {
+    // Filtra vendas com data futura (ruído da planilha — não conta venda que ainda não aconteceu)
+    if (d.status === 'Vendida' && d.venda) {
+      const m = String(d.venda).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) {
+        const vendaISO = m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+        const hojeISO = new Date().toISOString().slice(0,10);
+        if (vendaISO > hojeISO) return false;
+      }
+    }
+    // Também filtra análises com DATA da análise futura (não existem ainda)
+    if (d.data) {
+      const m = String(d.data).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) {
+        const dataISO = m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+        const hojeISO = new Date().toISOString().slice(0,10);
+        if (dataISO > hojeISO) return false;
+      }
+    }
+    return true;
+  }).map(d => {
     const parts = String(d.data).split(/[\/\-]/);
     let day, month, year;
     if (parts[0].length === 4) { [year, month, day] = parts; }
@@ -2626,10 +2646,12 @@ function renderHistorico() {
     }
     const status = getStatusMes(m);
     const emAndamento = status === 'andamento';
+    const futuro = status === 'futuro';
     // Para meses finalizados, prioriza snapshot travado
     const snap = !emAndamento ? HIST_CAMPEOES[`2026-${m}`] : null;
     const rank = getRankingMes(m).filter(g => g.vg > 0);
-    const c = snap || (rank.length ? rank[0] : null);
+    // Em meses futuros, ignora qualquer venda (ruído de datas futuras na planilha)
+    const c = futuro ? null : (snap || (rank.length ? rank[0] : null));
     if (!c) {
       card.classList.add(emAndamento ? 'atual' : 'no-sale');
       const prog = emAndamento ? getProgressoMes(m) : null;
