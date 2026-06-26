@@ -937,6 +937,7 @@ function _dedupAnalises(arr) {
   return out;
 }
 
+console.log("[TRACE] M1_DADOS_BEGIN");
 let DADOS = _dedupAnalises(DADOS_RAW.filter(d => d.status !== 'Cancelado').map(d => {
     const parts = String(d.data).split(/[\/\-]/);
     let day, month, year;
@@ -1100,6 +1101,7 @@ function popularFiltros() {
   popularFormVendaManual();
 }
 
+console.log("[TRACE] M2_AFTER_DADOS");
 function renderKPIs(d) {
   const aprovTotal = d.filter(x => x.cat === 'Aprovado').length;          // inclui vendidas (pra taxa)
   const aprov = d.filter(x => x.cat === 'Aprovado' && x.catFinal !== 'Vendida').length;  // só aprovados que ainda NÃO viraram venda
@@ -1593,6 +1595,7 @@ function fmtKanbanVal(v) {
   return 'R$ ' + (v||0);
 }
 
+console.log("[TRACE] M3_BEFORE_KANBAN");
 function renderKanban() {
   const board = document.getElementById('kanbanBoard');
   if (!board) return;
@@ -1801,6 +1804,7 @@ function atualizarSyncChip() {
   chip.className = 'sync-status-chip' + (ativo ? '' : ' off');
 }
 
+console.log("[TRACE] M4_BEFORE_RESET");
 function resetKanban() {
   if (!document.body.classList.contains('is-diretor')) { alert('Apenas o Diretor pode resetar o Kanban.'); return; }
   if (!confirm('Resetar movimentações de cards E nomes customizados das colunas?')) return;
@@ -1840,6 +1844,7 @@ let YEAR_CHAMP_LOCKED = null;    // { ano, nome, vg, vgvVend, lockedAt }
 let VENDAS_MANUAIS = [];         // vendas ganhas adicionadas manualmente pelo usuário
 let VENDAS_EXCLUIDAS = [];       // [{ num, motivo, excluidoEm, cliente, gerente }] — vendas removidas manualmente
 
+console.log("[TRACE] M5_BEFORE_LOADSTORE");
 function loadStore() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
@@ -1904,6 +1909,7 @@ function saveStore() {
 function savePhotos() { saveStore(); }
 
 // Auto-trava o campeão de cada mês FINALIZADO (mês em andamento não trava)
+console.log("[TRACE] M6_BEFORE_TRAVAR");
 function travarHistorico() {
   let mudou = false;
   const mesesComDados = [...new Set(DADOS.map(d => d.mes).filter(Boolean))];
@@ -2278,6 +2284,7 @@ function aplicarNovosDados(rawList) {
   renderHistorico();
 }
 
+console.log("[TRACE] M7_BEFORE_TENTAR");
 function tentarCarregarDadosSalvos() {
   try {
     const stored = JSON.parse(localStorage.getItem(DATA_DYNAMIC_KEY) || 'null');
@@ -2393,7 +2400,13 @@ function avatarHTML(nome, size = 'sm') {
 function renderPhotosConfig() {
   const list = document.getElementById('photosConfigList');
   if (!list) return;
-  const gerentes = [...new Set(DADOS.map(d => d.gerente).filter(Boolean))].sort();
+  // Inclui Diretor logado mesmo se ele não aparecer como gerente em nenhuma análise
+  let _curUserSafe = null;
+  try { if (typeof CURRENT_USER !== 'undefined' && CURRENT_USER) _curUserSafe = CURRENT_USER; } catch(e) {}
+  const gerentes = [...new Set([
+    ...DADOS.map(d => d.gerente).filter(Boolean),
+    ...(_curUserSafe && _curUserSafe.papel === 'Diretor' ? [_curUserSafe.nome] : []),
+  ])].sort();
   list.innerHTML = '';
   gerentes.forEach(g => {
     const row = document.createElement('div');
@@ -3220,6 +3233,7 @@ function kpiDrillDown(action) {
   }
 }
 
+console.log("[TRACE] M8_BEFORE_BIND");
 function bindEvents() {
   document.getElementById('fBusca').addEventListener('input', e => { state.filters.busca = e.target.value; renderAll(); });
   document.getElementById('fMes').addEventListener('change', e => { state.filters.mes = e.target.value; renderAll(); });
@@ -3280,28 +3294,29 @@ function bindEvents() {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 }
 
-// Auto-ativa modo view-only quando rodando em GitHub Pages ou hospedagem similar
-// (usuários finais só veem, não editam). URL ?edit=1 desbloqueia pra você.
-const _isGhPages = window.location.hostname.endsWith('github.io') || window.location.hostname.endsWith('netlify.app') || window.location.hostname.endsWith('vercel.app');
-const _editParam = new URLSearchParams(window.location.search).get('edit');
-const VIEW_ONLY = _isGhPages && _editParam !== '1';
-if (VIEW_ONLY) document.body.classList.add('view-only');
+// Controle de edição agora vem APENAS do papel (.is-diretor adicionado no login).
+// O auto-apply de view-only por hostname foi removido em 2026-06: estava sobrescrevendo
+// os controles do Diretor mesmo após login.
 
-loadStore();
+console.log("[TRACE] M9_CALL_LOADSTORE");loadStore();
 // Remove travas indevidas (meses em andamento não podem ficar travados)
 Object.keys(HIST_CAMPEOES).forEach(k => {
   const m = parseInt(k.split('-')[1]);
   if (m && getStatusMes(m) !== 'finalizado') { delete HIST_CAMPEOES[k]; }
 });
-bindEvents();
+console.log("[TRACE] M10_CALL_BIND");bindEvents();
 popularFiltros();
 renderAll();
+console.log("[TRACE] M10c_AFTER_RENDERALL");
 travarHistorico();  // Trava só o campeão de meses FINALIZADOS
 renderHistorico();
+console.log("[TRACE] M10d_AFTER_HIST");
 // Se houver dados xlsx salvos do navegador, restaura-os por cima dos embutidos
 tentarCarregarDadosSalvos();
+console.log("[TRACE] M10e_AFTER_TENTAR");
 
-// ============== SISTEMA DE LOGIN ==============
+// ============= SISTEMA DE LOGIN ==============
+console.log("[TRACE] M11_BEFORE_LOGIN_USERS");
 const LOGIN_USERS = {
   'srodrigo1946@gmail.com': { nome: 'Rodrigo Kayser', papel: 'Diretor', gerenteNome: null },
   'gracy.ferreira@vendasnovolar.com.br': { nome: 'Gracy Ferreira', papel: 'Gerente', gerenteNome: 'Gracy kaly da Silva Ferreira' },
