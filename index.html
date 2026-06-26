@@ -588,6 +588,11 @@ body.kanban-focus #tab-kanban .card-title { font-size: 16px; }
 @keyframes kbnSlideOut { to { transform: translateX(380px); opacity: 0; } }
 .sync-status-chip { font-size: 11px; padding: 4px 8px; border-radius: 6px; background: rgba(16,185,129,.15); color: #86efac; margin-left: 6px; }
 .sync-status-chip.off { background: rgba(148,163,184,.15); color: #94a3b8; }
+
+.user-chip .avatar-editavel { cursor: pointer; position: relative; }
+.user-chip .avatar-editavel::after { content: "📷"; position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px; border-radius: 50%; background: #1e3a5f; color: white; font-size: 10px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s; border: 1.5px solid #0b1220; }
+.user-chip .avatar-editavel:hover::after { opacity: 1; }
+.user-chip .avatar-editavel:hover { filter: brightness(1.1); }
 </style>
 </head>
 <body>
@@ -3359,13 +3364,49 @@ function renderUserChip() {
     chip.className = 'user-chip';
     actions.insertBefore(chip, actions.firstChild);
   }
-  const inits = CURRENT_USER.nome.split(/\s+/).slice(0,2).map(s => s[0]).join('').toUpperCase();
   document.body.classList.toggle('is-diretor', CURRENT_USER.papel === 'Diretor');
-  chip.innerHTML = `<span class="avatar sm" title="${CURRENT_USER.nome}">${inits}</span>`
+  kanbanStartSync();
+  // Avatar com foto se PHOTOS tiver; clique abre file picker pra trocar
+  chip.innerHTML = `<span class="avatar sm avatar-editavel" id="userAvatar" title="Clique para trocar a foto">${
+    PHOTOS[CURRENT_USER.nome]
+      ? `<img src="${PHOTOS[CURRENT_USER.nome]}" alt="${CURRENT_USER.nome}"/>`
+      : CURRENT_USER.nome.split(/\s+/).slice(0,2).map(s => s[0]).join('').toUpperCase()
+  }</span>`
+    + `<input type="file" id="userAvatarInput" accept="image/*" style="display:none"/>`
     + `<span class="nome">${CURRENT_USER.nome.split(' ')[0]}</span>`
     + `<span class="role">${CURRENT_USER.papel}</span>`
     + `<button title="Sair" id="btnLogout">×</button>`;
   document.getElementById('btnLogout').onclick = logout;
+  const avatarEl = document.getElementById('userAvatar');
+  const inputEl = document.getElementById('userAvatarInput');
+  avatarEl.onclick = () => inputEl.click();
+  inputEl.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 800 * 1024) { alert('Foto muito grande. Use uma imagem com menos de 800 KB.'); return; }
+    const r = new FileReader();
+    r.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 200;
+        const scale = Math.min(max / img.width, max / img.height, 1);
+        const w = img.width * scale, h = img.height * scale;
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        PHOTOS[CURRENT_USER.nome] = cv.toDataURL('image/jpeg', 0.82);
+        savePhotos();
+        renderUserChip();
+        try { renderPhotosConfig(); } catch(e) {}
+        try { renderCampeao(); } catch(e) {}
+        try { renderTabelaGerente(gerArrCache); } catch(e) {}
+        showToast(`📸 Foto atualizada`);
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+    e.target.value = '';
+  };
 }
 
 function mostrarLogin() {
